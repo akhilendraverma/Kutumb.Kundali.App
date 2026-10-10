@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "Kutumb Kundali \u2014 Family Vedic Astrology",
+  "short_name": "Kundali",
+  "description": "Sidereal (Lahiri) Vedic birth charts, dashas and family compatibility.",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#12143B",
+  "theme_color": "#12143B",
+  "lang": "en",
+  "categories": ["lifestyle", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
