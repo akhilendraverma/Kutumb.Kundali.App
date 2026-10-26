@@ -147,6 +147,7 @@ table.ptable tr:hover td{background:rgba(201,151,45,.08)}
 .house-card.negative{border-left-color:var(--vermilion)}
 .house-card.neutral{border-left-color:var(--gold)}
 .house-card h5{margin:0 0 4px;font-size:13.5px;display:flex;justify-content:space-between;align-items:center}
+.vbadge,.relrow .tag{text-transform:capitalize}
 .house-card .vbadge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700}
 .house-card.positive .vbadge{background:#E1EFE3;color:var(--sage)}
 .house-card.negative .vbadge{background:#F5E1E1;color:var(--vermilion)}
@@ -158,7 +159,7 @@ table.ptable tr:hover td{background:rgba(201,151,45,.08)}
 .gauge-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
 .gauge-card .pname{font-size:12.5px;font-weight:700;margin-top:2px}
 .gauge-card .pdeg{font-size:11px;color:var(--ink-soft)}
-.gauge-card .pverdict{font-size:10px;font-weight:700;margin-top:2px}
+.gauge-card .pverdict{font-size:10px;font-weight:700;margin-top:2px;text-transform:capitalize}
 
 .relrow{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;line-height:1.55}
 .relrow .tag{flex:0 0 auto;margin-top:1px}
@@ -323,7 +324,7 @@ table.ptable tr:hover td{background:rgba(201,151,45,.08)}
         </div>
       </div>
       <label>Birth place</label>
-      <input id="f_city" list="cityList" autocomplete="off" placeholder="Type to search, e.g. Allahabad">
+      <input id="f_city" list="cityList" autocomplete="off" placeholder="Type any town or city, e.g. Allahabad">
       <datalist id="cityList"></datalist>
       <div id="f_city_status" style="font-size:11px;margin-top:4px;color:#B9B3D8"></div>
       <details id="f_advanced_wrap">
@@ -531,6 +532,8 @@ const CITIES = [
   ["Amaravati, India",16.5730,80.3570,5.5],["Gwalior, India",26.2183,78.1828,5.5],["Jabalpur, India",23.1815,79.9864,5.5],
   ["Aligarh, India",27.8974,78.0880,5.5],["Moradabad, India",28.8386,78.7733,5.5],["Bareilly, India",28.3670,79.4304,5.5],
   ["Jalandhar, India",31.3260,75.5762,5.5],["Kota, India",25.2138,75.8648,5.5],["Thane, India",19.2183,72.9781,5.5],
+  ["Noida, India",28.5355,77.3910,5.5],["Gurugram (Gurgaon), India",28.4595,77.0266,5.5],
+  ["Mughalsarai (Mugalsarai) (DDU Nagar), India",25.2817,83.1194,5.5],
   ["Dubai, UAE",25.2048,55.2708,4],["Abu Dhabi, UAE",24.4539,54.3773,4],["Kathmandu, Nepal",27.7172,85.3240,5.75],
   ["Dhaka, Bangladesh",23.8103,90.4125,6],["Colombo, Sri Lanka",6.9271,79.8612,5.5],["Karachi, Pakistan",24.8607,67.0011,5],
   ["London, UK",51.5074,-0.1278,0],["New York, USA",40.7128,-74.0060,-5],["Los Angeles, USA",34.0522,-118.2437,-8],
@@ -540,9 +543,25 @@ const CITIES = [
   ["Muscat, Oman",23.5880,58.3829,4],["Doha, Qatar",25.2854,51.5310,3],["Kuala Lumpur, Malaysia",3.1390,101.6869,8],
   ["Hong Kong",22.3193,114.1694,8],["Tokyo, Japan",35.6762,139.6503,9]
 ];
+/* IANA zones for the built-in places outside fixed-offset countries, so DST / historical offsets are right */
+const CITY_ZONES = {
+  "London, UK":"Europe/London","New York, USA":"America/New_York","Los Angeles, USA":"America/Los_Angeles",
+  "Chicago, USA":"America/Chicago","Toronto, Canada":"America/Toronto","Vancouver, Canada":"America/Vancouver",
+  "Sydney, Australia":"Australia/Sydney","Melbourne, Australia":"Australia/Melbourne","Dublin, Ireland":"Europe/Dublin",
+  "Paris, France":"Europe/Paris","Frankfurt, Germany":"Europe/Berlin","Dubai, UAE":"Asia/Dubai","Abu Dhabi, UAE":"Asia/Dubai",
+  "Kathmandu, Nepal":"Asia/Kathmandu","Dhaka, Bangladesh":"Asia/Dhaka","Colombo, Sri Lanka":"Asia/Colombo",
+  "Karachi, Pakistan":"Asia/Karachi","Singapore":"Asia/Singapore","Muscat, Oman":"Asia/Muscat","Doha, Qatar":"Asia/Qatar",
+  "Kuala Lumpur, Malaysia":"Asia/Kuala_Lumpur","Hong Kong":"Asia/Hong_Kong","Tokyo, Japan":"Asia/Tokyo"
+};
+function cityZone(c){ return CITY_ZONES[c[0]] || (c[0].endsWith(", India") ? "Asia/Kolkata" : null); }
+const normPlace = s => s.toLowerCase().replace(/[()]/g," ").replace(/\s+/g," ").trim();
 function findCity(text){
-  const t = text.trim().toLowerCase();
-  return CITIES.find(c=>c[0].toLowerCase()===t);
+  const t = normPlace(text);
+  if(!t) return null;
+  // exact full name, or any of the city's names, e.g. "Allahabad" / "Prayagraj" for "Allahabad (Prayagraj), India"
+  return CITIES.find(c=>normPlace(c[0])===t)
+      || CITIES.find(c=>c[0].split(",")[0].split(/[()]/).map(normPlace).filter(Boolean).includes(t))
+      || null;
 }
 
 /* ============================= ASTRO ENGINE ============================= */
@@ -647,12 +666,13 @@ function analyzeHouse(chart, houseNum){
   score = Math.max(1,Math.min(5,score));
   return {lord, occupants, notes, score};
 }
+const capFirst = t => t ? t.charAt(0).toUpperCase()+t.slice(1) : t;
 function themeText(label, houses, chart){
   const parts = houses.map(h=>analyzeHouse(chart,h));
   const avg = Math.round(parts.reduce((a,b)=>a+b.score,0)/parts.length);
   const houseLabel = houses.map(h=>`${h}${ordSuf(h)}`).join(" & ");
   let sentence = `Looking at the ${houseLabel} house${houses.length>1?"s":""} (${houses.map(h=>HOUSE_MEANING[h]).join(" / ")}): `;
-  sentence += parts.map(p=>p.notes.join("; ")).join(". ") + ".";
+  sentence += parts.map((p,i)=>{ const t=p.notes.join("; "); return i ? capFirst(t) : t; }).join(". ") + ".";
   let verdict;
   if(avg>=4) verdict = "This looks like a genuine area of natural strength.";
   else if(avg<=2) verdict = "This area asks for more conscious effort and care through life.";
@@ -872,27 +892,117 @@ function recompute(m){ m.chart = computeChart(m); }
 
 /* ============================= UI: city search & time picker ============================= */
 const cityList = document.getElementById("cityList");
-CITIES.forEach(c=>{ const o=document.createElement("option"); o.value=c[0]; cityList.appendChild(o); });
+
 const cityInput = document.getElementById("f_city");
 const cityStatus = document.getElementById("f_city_status");
-function handleCityInput(){
-  const wrap = document.getElementById("f_advanced_wrap");
-  const hit = findCity(cityInput.value);
-  if(cityInput.value.trim()===""){ cityStatus.textContent=""; return; }
-  if(hit){
-    document.getElementById("f_lat").value = hit[1];
-    document.getElementById("f_lon").value = hit[2];
-    document.getElementById("f_tz").value = hit[3];
-    cityStatus.textContent = "✓ Location found — coordinates & timezone filled in automatically";
-    cityStatus.style.color = "#8FD19E";
-    wrap.open = false;
-  } else {
-    cityStatus.textContent = "Not in our list — enter latitude/longitude/timezone manually below";
-    cityStatus.style.color = "#E4B84A";
-    wrap.open = true;
+/* --- timezone helpers: UTC offset (hours) of an IANA zone at a given local wall-clock time, incl. DST & history --- */
+function zoneOffsetAtUtc(zone, utcMs){
+  const parts = new Intl.DateTimeFormat("en-US",{timeZone:zone,hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",
+    hour:"2-digit",minute:"2-digit",second:"2-digit"}).formatToParts(new Date(utcMs));
+  const g = k => parseInt(parts.find(p=>p.type===k).value,10);
+  const asUtc = Date.UTC(g("year"),g("month")-1,g("day"),g("hour")%24,g("minute"),g("second"));
+  return (asUtc - Math.floor(utcMs/1000)*1000)/3600000;
+}
+function zoneOffsetForLocal(zone,y,mo,d,hh,mm){
+  try{
+    const wall = Date.UTC(y,mo-1,d,hh,mm,0);
+    let off = zoneOffsetAtUtc(zone, wall);
+    off = zoneOffsetAtUtc(zone, wall - off*3600000);
+    return Math.round(off*60)/60;
+  }catch(e){ return null; }
+}
+
+let selectedZone = null;            // IANA zone of the chosen place (null = user typed coordinates manually)
+const remotePlaces = new Map();     // label -> [label, lat, lon, zone] from the online search
+let searchTimer = null, searchSeq = 0;
+
+function fillCityList(extra){
+  cityList.innerHTML = "";
+  const seen = new Set();
+  [...extra, ...CITIES.map(c=>c[0])].forEach(label=>{
+    if(seen.has(label)) return; seen.add(label);
+    const o=document.createElement("option"); o.value=label; cityList.appendChild(o);
+  });
+}
+function currentBirthLocal(){
+  const dob = document.getElementById("f_dob").value;
+  const [y,mo,d] = dob ? dob.split("-").map(Number) : [2000,1,1];
+  const th = parseInt(document.getElementById("f_tob_h").value,10), tm = parseInt(document.getElementById("f_tob_m").value,10);
+  const pm = !!document.querySelector('#ampm_toggle button.on[data-v="PM"]');
+  let hh = isNaN(th) ? 12 : th % 12; if(pm) hh += 12;
+  return [y,mo,d,hh,isNaN(tm)?0:tm];
+}
+function refreshTzField(){
+  if(!selectedZone) return;
+  const off = zoneOffsetForLocal(selectedZone, ...currentBirthLocal());
+  if(off!==null) document.getElementById("f_tz").value = off;
+}
+function applyPlace(label, lat, lon, zone, fixedTz){
+  document.getElementById("f_lat").value = (+lat).toFixed(4);
+  document.getElementById("f_lon").value = (+lon).toFixed(4);
+  selectedZone = zone || null;
+  if(selectedZone) refreshTzField(); else document.getElementById("f_tz").value = fixedTz;
+  cityStatus.textContent = "✓ Location found — coordinates & timezone filled in automatically";
+  cityStatus.style.color = "#8FD19E";
+  document.getElementById("f_advanced_wrap").open = false;
+}
+function showNotFound(msg){
+  selectedZone = null;
+  cityStatus.textContent = msg;
+  cityStatus.style.color = "#E4B84A";
+  document.getElementById("f_advanced_wrap").open = true;
+}
+async function searchOnline(query){
+  const seq = ++searchSeq;
+  cityStatus.textContent = "Searching worldwide…"; cityStatus.style.color = "#B9B3D8";
+  try{
+    const q = query.split(",")[0].trim();
+    const res = await fetch("https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&format=json&name="+encodeURIComponent(q));
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const data = await res.json();
+    if(seq!==searchSeq) return;                       // a newer keystroke superseded this search
+    const labels = [];
+    (data.results||[]).forEach(r=>{
+      const label = [r.name, r.admin1 && r.admin1!==r.name ? r.admin1 : null, r.country].filter(Boolean).join(", ");
+      if(!remotePlaces.has(label)) remotePlaces.set(label,[label,r.latitude,r.longitude,r.timezone]);
+      labels.push(label);
+    });
+    fillCityList(labels);
+    // if what's typed already matches one result exactly, use it
+    const exact = remotePlaces.get(cityInput.value.trim());
+    if(exact){ applyPlace(...exact); return; }
+    if(labels.length){
+      cityStatus.textContent = `${labels.length} place${labels.length>1?"s":""} found — pick one from the suggestions`;
+      cityStatus.style.color = "#B9B3D8";
+      // nudge some browsers to re-open the suggestion list
+      cityInput.blur(); cityInput.focus();
+    } else showNotFound("No place found — check the spelling, or enter latitude/longitude/timezone manually below");
+  }catch(e){
+    if(seq!==searchSeq) return;
+    showNotFound(navigator.onLine===false
+      ? "You're offline — only the built-in city list works. Enter latitude/longitude/timezone manually below"
+      : "Couldn't search right now — enter latitude/longitude/timezone manually below");
   }
 }
+function handleCityInput(){
+  const val = cityInput.value.trim();
+  clearTimeout(searchTimer);
+  if(val===""){ cityStatus.textContent=""; selectedZone=null; return; }
+  const remote = remotePlaces.get(val);
+  if(remote){ ++searchSeq; applyPlace(...remote); return; }
+  const hit = findCity(val);
+  if(hit){ ++searchSeq; applyPlace(hit[0],hit[1],hit[2],cityZone(hit),hit[3]); return; }
+  // forget the previous place so a chart can't be made with stale coordinates
+  selectedZone = null; ["f_lat","f_lon","f_tz"].forEach(id=>document.getElementById(id).value="");
+  if(val.length < 2){ cityStatus.textContent=""; return; }
+  cityStatus.textContent = "Searching…"; cityStatus.style.color = "#B9B3D8";
+  searchTimer = setTimeout(()=>searchOnline(val), 350);
+}
 cityInput.addEventListener("input", handleCityInput);
+// manual edits to the coordinate/offset fields switch off automatic timezone handling
+["f_lat","f_lon","f_tz"].forEach(id=>document.getElementById(id).addEventListener("input",()=>{ selectedZone=null; }));
+document.getElementById("f_dob").addEventListener("change", refreshTzField);
+fillCityList([]);
 cityInput.value = "New Delhi, India"; handleCityInput();
 
 const hourSel = document.getElementById("f_tob_h");
@@ -919,20 +1029,32 @@ document.getElementById("f_add").addEventListener("click", ()=>{
   const lat = parseFloat(document.getElementById("f_lat").value);
   const lon = parseFloat(document.getElementById("f_lon").value);
   const tz = parseFloat(document.getElementById("f_tz").value);
-  if(!name || !dob || isNaN(th) || isNaN(tm) || tm<0 || tm>59 || !ap || isNaN(lat) || isNaN(lon) || isNaN(tz)){
-    alert("Please fill in name, date of birth, a complete time of birth (hour, minute, AM/PM), and make sure a birth place (or custom lat/lon/timezone) is set.");
+  const missing = [];
+  if(!name) missing.push("• Name");
+  if(!dob) missing.push("• Date of birth");
+  if(isNaN(th)) missing.push("• Birth hour (HH)");
+  if(isNaN(tm) || tm<0 || tm>59) missing.push("• Birth minute (MM)");
+  if(!ap) missing.push("• AM or PM — tap one of the two buttons");
+  if(isNaN(lat) || isNaN(lon) || isNaN(tz)) missing.push("• Birth place — pick one from the suggestions (or enter latitude, longitude and UTC offset under \"Custom coordinates / timezone\")");
+  if(missing.length){
+    alert("Please complete the following before adding:\n\n" + missing.join("\n"));
     return;
   }
   const [y,mo,d] = dob.split("-").map(Number);
   let hh = th % 12; if(ap==="PM") hh += 12;
   const mm = tm;
-  const m = {id:"m"+Date.now()+Math.random().toString(36).slice(2,7), name, rel, y,mo,d,hh,mm, lat, lon, tz};
+  let tzUse = tz;
+  if(selectedZone){ const off = zoneOffsetForLocal(selectedZone,y,mo,d,hh,mm); if(off!==null){ tzUse = off; document.getElementById("f_tz").value = off; } }
+  const m = {id:"m"+Date.now()+Math.random().toString(36).slice(2,7), name, rel, y,mo,d,hh,mm, lat, lon, tz:tzUse};
   recompute(m);
   members.push(m);
   saveAll();
   activeId = m.id;
+  // reset the person-specific fields so the next member can't inherit them by mistake
   document.getElementById("f_name").value = "";
+  document.getElementById("f_dob").value = "";
   document.getElementById("f_tob_h").value = ""; document.getElementById("f_tob_m").value = ""; resetAmPm();
+  if(members.length===1) document.getElementById("f_rel").value = "Spouse";
   renderSidebar(); renderProfile(); renderChemistrySelectors();
 });
 
@@ -1089,7 +1211,7 @@ function renderHouseGrid(c){
       <h5>House ${h} ${v.marker?`<span class="vbadge">${v.marker}</span>`:`<span class="vbadge">neutral</span>`}</h5>
       <div style="font-size:11px;color:var(--ink-soft)">${SIGNS[signIdx]} · ruled by ${v.lord}</div>
       <div class="areas">${HOUSE_KEYWORDS[h].join(" · ")}</div>
-      <p>${occupants.length?`Occupied by <b>${occupants.join(", ")}</b>. `:""}${v.notes[0]}.</p>
+      <p>${occupants.length?`Occupied by <b>${occupants.join(", ")}</b>. `:""}${capFirst(v.notes[0])}.</p>
     </div>`;
   }
   document.getElementById("housegrid").innerHTML = html;
