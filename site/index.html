@@ -147,6 +147,7 @@ table.ptable tr:hover td{background:rgba(201,151,45,.08)}
 .house-card.negative{border-left-color:var(--vermilion)}
 .house-card.neutral{border-left-color:var(--gold)}
 .house-card h5{margin:0 0 4px;font-size:13.5px;display:flex;justify-content:space-between;align-items:center}
+.vbadge,.relrow .tag{text-transform:capitalize}
 .house-card .vbadge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700}
 .house-card.positive .vbadge{background:#E1EFE3;color:var(--sage)}
 .house-card.negative .vbadge{background:#F5E1E1;color:var(--vermilion)}
@@ -158,7 +159,7 @@ table.ptable tr:hover td{background:rgba(201,151,45,.08)}
 .gauge-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
 .gauge-card .pname{font-size:12.5px;font-weight:700;margin-top:2px}
 .gauge-card .pdeg{font-size:11px;color:var(--ink-soft)}
-.gauge-card .pverdict{font-size:10px;font-weight:700;margin-top:2px}
+.gauge-card .pverdict{font-size:10px;font-weight:700;margin-top:2px;text-transform:capitalize}
 
 .relrow{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;line-height:1.55}
 .relrow .tag{flex:0 0 auto;margin-top:1px}
@@ -665,12 +666,13 @@ function analyzeHouse(chart, houseNum){
   score = Math.max(1,Math.min(5,score));
   return {lord, occupants, notes, score};
 }
+const capFirst = t => t ? t.charAt(0).toUpperCase()+t.slice(1) : t;
 function themeText(label, houses, chart){
   const parts = houses.map(h=>analyzeHouse(chart,h));
   const avg = Math.round(parts.reduce((a,b)=>a+b.score,0)/parts.length);
   const houseLabel = houses.map(h=>`${h}${ordSuf(h)}`).join(" & ");
   let sentence = `Looking at the ${houseLabel} house${houses.length>1?"s":""} (${houses.map(h=>HOUSE_MEANING[h]).join(" / ")}): `;
-  sentence += parts.map(p=>p.notes.join("; ")).join(". ") + ".";
+  sentence += parts.map((p,i)=>{ const t=p.notes.join("; "); return i ? capFirst(t) : t; }).join(". ") + ".";
   let verdict;
   if(avg>=4) verdict = "This looks like a genuine area of natural strength.";
   else if(avg<=2) verdict = "This area asks for more conscious effort and care through life.";
@@ -1027,8 +1029,15 @@ document.getElementById("f_add").addEventListener("click", ()=>{
   const lat = parseFloat(document.getElementById("f_lat").value);
   const lon = parseFloat(document.getElementById("f_lon").value);
   const tz = parseFloat(document.getElementById("f_tz").value);
-  if(!name || !dob || isNaN(th) || isNaN(tm) || tm<0 || tm>59 || !ap || isNaN(lat) || isNaN(lon) || isNaN(tz)){
-    alert("Please fill in name, date of birth, a complete time of birth (hour, minute, AM/PM), and make sure a birth place (or custom lat/lon/timezone) is set.");
+  const missing = [];
+  if(!name) missing.push("• Name");
+  if(!dob) missing.push("• Date of birth");
+  if(isNaN(th)) missing.push("• Birth hour (HH)");
+  if(isNaN(tm) || tm<0 || tm>59) missing.push("• Birth minute (MM)");
+  if(!ap) missing.push("• AM or PM — tap one of the two buttons");
+  if(isNaN(lat) || isNaN(lon) || isNaN(tz)) missing.push("• Birth place — pick one from the suggestions (or enter latitude, longitude and UTC offset under \"Custom coordinates / timezone\")");
+  if(missing.length){
+    alert("Please complete the following before adding:\n\n" + missing.join("\n"));
     return;
   }
   const [y,mo,d] = dob.split("-").map(Number);
@@ -1041,8 +1050,11 @@ document.getElementById("f_add").addEventListener("click", ()=>{
   members.push(m);
   saveAll();
   activeId = m.id;
+  // reset the person-specific fields so the next member can't inherit them by mistake
   document.getElementById("f_name").value = "";
+  document.getElementById("f_dob").value = "";
   document.getElementById("f_tob_h").value = ""; document.getElementById("f_tob_m").value = ""; resetAmPm();
+  if(members.length===1) document.getElementById("f_rel").value = "Spouse";
   renderSidebar(); renderProfile(); renderChemistrySelectors();
 });
 
@@ -1199,7 +1211,7 @@ function renderHouseGrid(c){
       <h5>House ${h} ${v.marker?`<span class="vbadge">${v.marker}</span>`:`<span class="vbadge">neutral</span>`}</h5>
       <div style="font-size:11px;color:var(--ink-soft)">${SIGNS[signIdx]} · ruled by ${v.lord}</div>
       <div class="areas">${HOUSE_KEYWORDS[h].join(" · ")}</div>
-      <p>${occupants.length?`Occupied by <b>${occupants.join(", ")}</b>. `:""}${v.notes[0]}.</p>
+      <p>${occupants.length?`Occupied by <b>${occupants.join(", ")}</b>. `:""}${capFirst(v.notes[0])}.</p>
     </div>`;
   }
   document.getElementById("housegrid").innerHTML = html;
