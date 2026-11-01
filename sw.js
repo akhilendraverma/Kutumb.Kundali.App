@@ -1,8 +1,8 @@
 /* Kutumb Kundali service worker: offline-first app shell */
-const CACHE = "kk-v2";
+const CACHE = "kk-v3";
 const ASSETS = [
   "./", "./index.html", "./astronomy.browser.min.js", "./manifest.webmanifest",
-  "./privacy.html", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png"
+  "./privacy.html", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png"
 ];
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
